@@ -1,0 +1,25 @@
+IMÁGENES DE PERSONAJES (public/img/)
+====================================
+La invitación funciona sin ellas: donde falte una imagen se muestra una esfera.
+Los nombres se pueden cambiar en src/config.ts -> imagenes.
+
+  personaje-hero.png         Personaje principal de la portada, con el aura
+                             detrás. PNG con fondo transparente, vertical
+                             (aprox. 600 x 720 px).
+
+  personaje-credencial.png   Personaje de la credencial de luchador.
+                             PNG cuadrado o vertical (aprox. 400 x 460 px).
+
+  personaje-bienvenida.png   Personaje de la ventana de bienvenida.
+                             PNG transparente (aprox. 300 x 320 px).
+
+  foto-cumple.jpg            Foto del cumpleañero/a: fondo de la sección
+                             "Captura cada momento épico".
+
+  galeria/*.jpg              Fotos para la página de cómic. Agrega sus nombres
+                             en src/config.ts -> galeria.fotos.
+
+  decoracion/                Dragones de dominio público (ver CREDITOS.md).
+
+Nota: el arte oficial de series/personajes tiene derechos de autor. Úsalo solo
+para esta invitación personal.

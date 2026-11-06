@@ -1,0 +1,9 @@
+[
+    { "hour": "04:00 pm", "event": "Llegan los guerreros", "sfx": "¡ZAS!" },
+    { "hour": "04:30 pm", "event": "Entrenamiento especial", "sfx": "¡PUM!" },
+    { "hour": "05:00 pm", "event": "Gran Torneo de Juegos", "sfx": "¡BOOM!" },
+    { "hour": "05:45 pm", "event": "Recarga de energía (snacks)", "sfx": "¡ÑAM!" },
+    { "hour": "06:15 pm", "event": "La hora de la onda de energía", "sfx": "¡FIUM!" },
+    { "hour": "06:45 pm", "event": "Piñata del dragón", "sfx": "¡CRASH!" },
+    { "hour": "07:15 pm", "event": "Torta y deseo final", "sfx": "¡YEAH!" }
+]
