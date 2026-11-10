@@ -402,6 +402,25 @@ h3 {
       transform: translate(14px, -8px);
    }
 }
+.hero-shenlong {
+   position: absolute;
+   z-index: 1;
+   right: -40px;
+   bottom: -30px;
+   height: min(88%, 720px);
+   width: auto;
+   opacity: 0.32;
+   filter: drop-shadow(0 0 30px rgba(57, 255, 136, 0.6));
+   pointer-events: none;
+   animation: float 6s ease-in-out infinite;
+}
+@media (max-width: 720px) {
+   .hero-shenlong {
+      right: -70px;
+      height: 70%;
+      opacity: 0.25;
+   }
+}
 .hero-inner {
    position: relative;
    z-index: 2;
@@ -421,6 +440,91 @@ h3 {
    align-items: center;
    min-height: 340px;
 }
+/* ---------- Portada con foto del cumpleañero ---------- */
+.hero-foto {
+   position: relative;
+   z-index: 1;
+   width: 270px;
+   aspect-ratio: 1;
+}
+.hero-foto img {
+   position: relative;
+   display: block;
+   width: 100%;
+   height: 100%;
+   object-fit: cover;
+   border-radius: 50%;
+   border: 6px solid #fff;
+   box-shadow:
+      0 0 0 5px var(--ink),
+      8px 10px 0 5px var(--ink);
+}
+.hero-foto-anillo {
+   position: absolute;
+   inset: -26px;
+   border-radius: 50%;
+   background: repeating-conic-gradient(
+      var(--yellow) 0deg 10deg,
+      var(--orange) 10deg 20deg
+   );
+   mask: radial-gradient(circle, transparent 58%, #000 59%);
+   -webkit-mask: radial-gradient(circle, transparent 58%, #000 59%);
+   animation: spin 14s linear infinite;
+}
+.hero-foto-insignia {
+   position: absolute;
+   z-index: 2;
+   top: -6px;
+   left: -18px;
+   padding: 6px 12px;
+   border: 3px solid var(--ink);
+   border-radius: 10px;
+   background: var(--red);
+   color: #fff;
+   font-family: "Bangers", cursive;
+   font-size: 24px;
+   letter-spacing: 1px;
+   box-shadow: 3px 3px 0 var(--ink);
+   transform: rotate(-10deg);
+}
+.modo-foto .aura,
+.modo-foto-y-personaje .aura {
+   width: 360px;
+   height: 360px;
+   border-radius: 50%;
+}
+/* Foto + personaje: el personaje sale por la esquina de la foto */
+.modo-foto-y-personaje .hero-personaje {
+   position: absolute;
+   z-index: 2;
+   right: max(-30px, calc(50% - 250px));
+   bottom: -40px;
+   width: 150px;
+   height: 190px;
+}
+.modo-foto-y-personaje {
+   padding-bottom: 20px;
+}
+@media (max-width: 720px) {
+   .hero-foto {
+      width: 210px;
+   }
+   .hero-foto-anillo {
+      inset: -20px;
+   }
+   .modo-foto .aura,
+   .modo-foto-y-personaje .aura {
+      width: 280px;
+      height: 280px;
+   }
+   .modo-foto-y-personaje .hero-personaje {
+      right: calc(50% - 192px);
+      bottom: -44px;
+      width: 120px;
+      height: 150px;
+   }
+}
+
 .aura {
    position: absolute;
    width: 300px;
@@ -1082,39 +1186,45 @@ h3 {
    }
 }
 
-/* ---------- Galería: página de cómic ---------- */
-.comic-page {
-   max-width: 900px;
+/* ---------- Galería: mosaico (estilo invitacion-missy) ---------- */
+.galeria {
+   max-width: 960px;
    margin: 0 auto;
-   display: grid;
-   grid-template-columns: repeat(3, 1fr);
-   gap: 14px;
-   padding: 14px;
-   border: 4px solid var(--ink);
-   background: #fff;
-   box-shadow: 8px 8px 0 var(--ink);
+   columns: 2;
+   column-gap: 0.7rem;
 }
-.comic-frame {
-   padding: 0;
-   border: 3px solid var(--ink);
-   background: var(--sky-soft);
-   cursor: zoom-in;
-   overflow: hidden;
-   aspect-ratio: 1;
+@media (min-width: 720px) {
+   .galeria {
+      columns: 3;
+   }
 }
-.comic-frame:nth-child(4n + 1) {
-   grid-column: span 2;
-   aspect-ratio: auto;
-}
-.comic-frame img {
+.galeria-item {
    display: block;
    width: 100%;
-   height: 100%;
-   object-fit: cover;
-   transition: transform 0.3s ease;
+   margin: 0 0 0.7rem;
+   overflow: hidden;
+   padding: 0;
+   border: 3px solid var(--ink);
+   border-radius: 12px;
+   background: var(--sky-soft);
+   box-shadow: 4px 4px 0 var(--ink);
+   break-inside: avoid;
+   cursor: zoom-in;
 }
-.comic-frame:hover img {
-   transform: scale(1.05);
+.galeria-item img {
+   display: block;
+   width: 100%;
+   height: auto;
+   transition: transform 0.6s ease;
+}
+.galeria-item:hover img {
+   transform: scale(1.04);
+}
+[data-reveal="zoom"] {
+   transform: scale(0.85);
+   transition:
+      opacity 0.9s ease var(--d, 0s),
+      transform 0.9s ease var(--d, 0s);
 }
 .lightbox {
    position: fixed;
@@ -1123,46 +1233,55 @@ h3 {
    display: flex;
    align-items: center;
    justify-content: center;
-   padding: 60px 70px;
-   background: rgba(8, 16, 30, 0.94);
+   padding: 70px 80px;
+   background: rgba(8, 16, 30, 0.92);
+   backdrop-filter: blur(6px);
+   animation: fade 0.25s ease;
 }
 .lightbox > img {
    max-width: 100%;
    max-height: 80vh;
    object-fit: contain;
-   border: 5px solid #fff;
+   border-radius: 10px;
+   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 .lightbox-close,
 .lightbox-nav {
    position: absolute;
-   border: 0;
-   background: transparent;
+   z-index: 1;
+   display: grid;
+   place-items: center;
+   width: 46px;
+   height: 46px;
+   padding: 0 0 4px;
+   border: 2px solid rgba(255, 255, 255, 0.5);
+   border-radius: 50%;
+   background: rgba(255, 138, 0, 0.75);
    color: #fff;
    cursor: pointer;
-   font-size: 44px;
+   font-size: 30px;
    line-height: 1;
-   padding: 10px;
 }
 .lightbox-close {
-   top: 10px;
-   right: 16px;
+   top: 16px;
+   left: 16px;
 }
 .lightbox-nav {
    top: 50%;
    transform: translateY(-50%);
 }
 .lightbox-nav.prev {
-   left: 8px;
+   left: 12px;
 }
 .lightbox-nav.next {
-   right: 8px;
+   right: 12px;
 }
 .lightbox-counter {
    position: absolute;
-   bottom: 20px;
+   bottom: 25px;
    color: #fff;
    letter-spacing: 2px;
-   font-size: 12px;
+   font-size: 11px;
 }
 
 /* ---------- Entrenamiento ---------- */
@@ -1495,6 +1614,209 @@ footer small .icon {
    font-size: 13px;
    font-weight: 700;
 }
+.welcome-figure {
+   position: relative;
+}
+
+/* ---------- Bienvenida: variante RADAR ---------- */
+.welcome-card-radar {
+   background: radial-gradient(circle at 50% 30%, #12351f 0%, #07160d 70%);
+   color: #d9ffe6;
+   border-color: var(--hud);
+   box-shadow: 0 0 0 4px var(--ink), 0 0 40px rgba(57, 255, 136, 0.35);
+}
+.welcome-radar {
+   position: relative;
+   width: 190px;
+   aspect-ratio: 1;
+   margin: 4px auto 6px;
+   border-radius: 50%;
+   border: 2px solid var(--hud);
+   background:
+      repeating-radial-gradient(circle, transparent 0 30px, rgba(57, 255, 136, 0.35) 30px 31px),
+      linear-gradient(transparent 49.5%, rgba(57, 255, 136, 0.35) 49.5% 50.5%, transparent 50.5%),
+      linear-gradient(90deg, transparent 49.5%, rgba(57, 255, 136, 0.35) 49.5% 50.5%, transparent 50.5%);
+   overflow: hidden;
+}
+.radar-sweep {
+   position: absolute;
+   inset: 0;
+   border-radius: 50%;
+   background: conic-gradient(from 0deg, rgba(57, 255, 136, 0.55), transparent 70deg);
+   animation: spin 2.6s linear infinite;
+}
+.radar-blip {
+   position: absolute;
+   width: 22px;
+   filter: drop-shadow(0 0 6px rgba(255, 210, 63, 0.9));
+   animation: pulse 1.6s ease-in-out infinite;
+}
+.blip-1 { top: 18%; left: 30%; }
+.blip-2 { top: 26%; left: 64%; animation-delay: 0.2s; }
+.blip-3 { top: 46%; left: 14%; animation-delay: 0.4s; }
+.blip-4 { top: 44%; left: 46%; animation-delay: 0.6s; }
+.blip-5 { top: 52%; left: 74%; animation-delay: 0.8s; }
+.blip-6 { top: 70%; left: 34%; animation-delay: 1s; }
+.blip-7 { top: 72%; left: 60%; animation-delay: 1.2s; }
+.welcome-card-radar .welcome-saludo {
+   font-family: ui-monospace, Consolas, monospace;
+   font-size: 12px;
+   letter-spacing: 2px;
+   text-transform: uppercase;
+   color: var(--hud);
+}
+.welcome-card-radar h2 {
+   color: var(--yellow);
+   text-shadow: 0 0 18px rgba(255, 210, 63, 0.6), 3px 3px 0 #000;
+}
+.welcome-card-radar > span.welcome-lectura {
+   display: inline-block;
+   margin: 0 auto 10px;
+   padding: 4px 10px;
+   border: 1px solid var(--hud);
+   border-radius: 4px;
+   font-family: ui-monospace, Consolas, monospace;
+   font-size: 12px;
+   color: var(--hud);
+}
+.welcome-card-radar .text-button {
+   color: #a9f5c6;
+}
+
+/* ---------- Bienvenida: variante NUBE ---------- */
+.welcome-card-nube {
+   background:
+      radial-gradient(ellipse 60% 22% at 20% 92%, #fff 60%, transparent 61%),
+      radial-gradient(ellipse 50% 20% at 85% 96%, #fff 60%, transparent 61%),
+      linear-gradient(180deg, #5db4ff 0%, var(--sky) 45%, var(--sky-soft) 100%);
+   overflow: hidden;
+}
+.welcome-card-nube .welcome-personaje {
+   width: 170px;
+   height: 190px;
+   animation: float 3s ease-in-out infinite;
+}
+.welcome-card-nube .welcome-sfx {
+   top: 6px;
+   right: 8%;
+   width: 110px;
+   transform: rotate(10deg);
+}
+.welcome-card-nube h2 {
+   color: var(--yellow);
+}
+
+/* ---------- Bienvenida: variante RASTREADOR ---------- */
+.welcome-card-rastreador {
+   background:
+      repeating-linear-gradient(0deg, rgba(57, 255, 136, 0.06) 0 2px, transparent 2px 5px),
+      linear-gradient(160deg, #fff 0%, #fff 55%, #ffe8cc 100%);
+}
+.welcome-card-rastreador .welcome-personaje {
+   width: 150px;
+   height: 180px;
+}
+.welcome-scouter {
+   margin: 0 auto 14px;
+   padding: 8px 14px;
+   width: fit-content;
+   border: 3px solid var(--ink);
+   border-radius: 30px 6px 30px 6px;
+   background: rgba(57, 255, 136, 0.18);
+   box-shadow: 4px 4px 0 var(--ink);
+   transform: rotate(-3deg);
+   animation: shake 0.4s 0.8s 3;
+}
+.scouter-label {
+   display: block;
+   font-family: ui-monospace, Consolas, monospace;
+   font-size: 11px;
+   letter-spacing: 2px;
+   color: #0f7a3d;
+}
+.welcome-scouter strong {
+   font-family: "Bangers", cursive;
+   font-weight: 400;
+   font-size: 34px;
+   letter-spacing: 1px;
+   color: var(--red);
+   -webkit-text-stroke: 1px var(--ink);
+}
+
+/* ---------- Bienvenida: variante SHENLONG ---------- */
+.welcome-card-shenlong {
+   background:
+      radial-gradient(circle at 50% 28%, rgba(57, 255, 136, 0.35) 0%, transparent 45%),
+      linear-gradient(180deg, #0b1a3a 0%, #1b2f5c 100%);
+   color: #e8f1ff;
+   border-color: #0b1a3a;
+   box-shadow: 0 0 0 4px var(--yellow), 0 0 50px rgba(57, 255, 136, 0.35);
+}
+.welcome-card-shenlong .welcome-personaje {
+   width: 200px;
+   height: 230px;
+   filter: drop-shadow(0 0 18px rgba(57, 255, 136, 0.75));
+   animation: rise 1.2s ease-out both;
+}
+.welcome-card-shenlong .welcome-saludo {
+   color: #cfe0ff;
+}
+.welcome-card-shenlong h2 {
+   color: var(--yellow);
+   text-shadow: 0 0 18px rgba(255, 210, 63, 0.55), 3px 3px 0 #000;
+}
+.welcome-card-shenlong > span.welcome-concedido {
+   display: inline-block;
+   margin: 0 auto 10px;
+   padding: 4px 14px;
+   border-radius: 999px;
+   background: var(--hud);
+   color: #06210f;
+   font-family: "Bangers", cursive;
+   font-size: 18px;
+   letter-spacing: 1px;
+   animation: pulse 1.6s ease-in-out infinite;
+}
+.welcome-card-shenlong .text-button {
+   color: #b9cdf5;
+}
+
+/* ---------- Bienvenida: variante PERGAMINO ---------- */
+.welcome-card-pergamino {
+   background:
+      radial-gradient(circle at 20% 15%, rgba(160, 110, 40, 0.12), transparent 40%),
+      radial-gradient(circle at 80% 85%, rgba(160, 110, 40, 0.15), transparent 45%),
+      #f6e7c1;
+   border-radius: 6px;
+   border-width: 4px 4px;
+   box-shadow: 0 -14px 0 -4px #8a5a2b, 0 14px 0 -4px #8a5a2b, 8px 8px 0 var(--ink);
+}
+.welcome-card-pergamino > span.welcome-sello {
+   position: absolute;
+   top: 14px;
+   left: 12px;
+   padding: 4px 8px;
+   border: 3px solid var(--red);
+   border-radius: 6px;
+   color: var(--red);
+   font-family: "Bangers", cursive;
+   font-size: 15px;
+   letter-spacing: 1px;
+   transform: rotate(-12deg);
+   opacity: 0.85;
+}
+.welcome-card-pergamino .welcome-personaje {
+   width: 150px;
+   height: 170px;
+}
+.welcome-card-pergamino .welcome-saludo {
+   font-style: italic;
+   color: #5b3a17;
+}
+.welcome-card-pergamino h2 {
+   color: #3f8f3a;
+}
+
 .text-button {
    display: block;
    margin: 14px auto 0;
@@ -1638,11 +1960,6 @@ footer small .icon {
    .ep-sfx {
       right: -8px;
       width: 80px;
-   }
-   .comic-page {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      padding: 10px;
    }
    .photos-section h2 {
       font-size: 36px;

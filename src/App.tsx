@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import invitados from "../db/invitados.json";
 import itinerario from "../db/itinerario.json";
-import { config } from "./config";
+import {
+   type Bienvenida,
+   type VarianteBienvenida,
+   bienvenidas,
+   config,
+} from "./config";
 import { Esfera, Estallido, NubeDorada } from "./decor";
 
 declare global {
@@ -70,6 +75,67 @@ const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE
    new Date(fecha.getTime() + config.duracionHoras * 3600000),
 )}&location=${encodeURIComponent(`${config.lugar}, ${config.direccion}`)}`;
 
+/** Variables disponibles en los textos del config: {nombre}, {edad}, etc. */
+const VARS: Record<string, string> = {
+   nombre: config.nombre,
+   edad: String(config.edad),
+   anios: config.edad === 1 ? "año" : "años",
+   guerrero: config.guerrero,
+   Guerrero: capitalize(config.guerrero),
+   cumpleanero: config.cumpleanero,
+   hora: horaTexto,
+};
+
+const escapeHtml = (s: string) =>
+   s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** Reemplaza {variables} en un texto del config. */
+function t(texto: string, extra: Record<string, string> = {}) {
+   const vars = { ...VARS, ...extra };
+   return texto.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m);
+}
+
+/** Texto del config con HTML simple (<b>, <br>). Las variables se escapan. */
+function Rich({
+   texto,
+   extra = {},
+   as: Tag = "span",
+   className,
+}: {
+   texto: string;
+   extra?: Record<string, string>;
+   as?: "span" | "p" | "small";
+   className?: string;
+}) {
+   const safe = Object.fromEntries(
+      Object.entries({ ...VARS, ...extra }).map(([k, v]) => [k, escapeHtml(v)]),
+   );
+   return (
+      <Tag
+         className={className}
+         // biome-ignore lint/security/noDangerouslySetInnerHtml: textos propios del config
+         dangerouslySetInnerHTML={{ __html: t(texto, safe) }}
+      />
+   );
+}
+
+function elegirBienvenida(): Bienvenida {
+   const param = new URLSearchParams(window.location.search).get("bienvenida");
+   if (param && param in bienvenidas)
+      return bienvenidas[param as VarianteBienvenida];
+   return bienvenidas[config.bienvenidaActiva] ?? bienvenidas.torneo;
+}
+
+const bienvenida = elegirBienvenida();
+
+type ModoPortada = typeof config.portada.modo;
+const MODOS_PORTADA: ModoPortada[] = ["personaje", "foto", "foto-y-personaje"];
+const modoPortada: ModoPortada = (() => {
+   const param = new URLSearchParams(window.location.search).get("portada");
+   return MODOS_PORTADA.includes(param as ModoPortada)
+      ? (param as ModoPortada)
+      : config.portada.modo;
+})();
 const galleryImages = config.galeria.fotos.map((f) => img(`galeria/${f}`));
 const hasMusic = config.youtubeVideoId.trim() !== "";
 const TOTAL_ESFERAS = 7;
@@ -332,21 +398,16 @@ function Modal({
    const [status, setStatus] = useState<
       "idle" | "saving" | "success" | "error"
    >("idle");
+   const m = config.modales;
+   const r = m.rsvp;
    const titles = {
-      rsvp: "¡Únete al equipo!",
-      dress: "Vestimenta",
-      tips: "Tips de entrenamiento",
-      gifts: "Regalos",
+      rsvp: r.titulo,
+      dress: m.vestimenta.encabezado,
+      tips: m.tips.encabezado,
+      gifts: m.regalos.encabezado,
    };
    const stars = { rsvp: 4, dress: 1, tips: 2, gifts: 3 }[active];
-   const copy = {
-      dress: config.modales.vestimenta,
-      tips: {
-         titulo: config.modales.tips.titulo,
-         texto: `La batalla comienza a las ${horaTexto}. ${config.modales.tips.texto}`,
-      },
-      gifts: config.modales.regalos,
-   };
+   const copy = { dress: m.vestimenta, tips: m.tips, gifts: m.regalos };
 
    return (
       <div className="modal-backdrop" role="presentation" onMouseDown={close}>
@@ -374,7 +435,7 @@ function Modal({
                         await enviarConfirmacion({
                            nombre: invitado
                               ? `${invitado.nombre} ${invitado.apellidos}`.trim()
-                              : "Invitado sin código",
+                              : r.sinCodigo,
                            asistira: form.get("asistira") === "si",
                            mensaje: form.get("mensaje"),
                         });
@@ -387,29 +448,26 @@ function Modal({
                   }}
                >
                   <fieldset>
-                     <legend>¿Vienes al torneo? *</legend>
+                     <legend>{r.pregunta}</legend>
                      <label className="choice">
                         <input type="radio" name="asistira" value="si" required />
-                        <span>¡Sí, ahí estaré!</span>
+                        <span>{r.si}</span>
                      </label>
                      <label className="choice">
                         <input type="radio" name="asistira" value="no" />
-                        <span>No podré ir</span>
+                        <span>{r.no}</span>
                      </label>
                   </fieldset>
                   <label>
-                     Mensaje para {config.cumpleanero} (opcional)
-                     <textarea
-                        name="mensaje"
-                        placeholder="Mándale toda tu energía en un mensaje"
-                     />
+                     {t(r.mensaje)}
+                     <textarea name="mensaje" placeholder={t(r.placeholder)} />
                   </label>
                   <Button type="submit">
-                     {status === "saving" ? "CARGANDO ENERGÍA..." : "CONFIRMAR"}
+                     {status === "saving" ? r.enviando : r.boton}
                   </Button>
                   {status === "error" && (
                      <p className="form-status error" role="alert">
-                        No se pudo guardar. Inténtalo nuevamente.
+                        {r.error}
                      </p>
                   )}
                </form>
@@ -417,18 +475,16 @@ function Modal({
             {active === "rsvp" && status === "success" && (
                <div className="rsvp-success" role="status">
                   <Stamp className="stamp-confirmed">
-                     ¡Guerrero
-                     <br />
-                     confirmado!
+                     <Rich texto={r.sello} />
                   </Stamp>
-                  <p>¡Gracias! Tu respuesta fue guardada.</p>
+                  <p>{r.exito}</p>
                </div>
             )}
 
             {active !== "rsvp" && (
                <div className="modal-copy">
-                  <p>{copy[active].titulo}</p>
-                  <span>{copy[active].texto}</span>
+                  <p>{t(copy[active].titulo)}</p>
+                  <span>{t(copy[active].texto)}</span>
                </div>
             )}
          </div>
@@ -445,6 +501,7 @@ function WishModal({
    reset: () => void;
    invitado: Invitado | null;
 }) {
+   const j = config.juego;
    return (
       <div className="modal-backdrop wish" role="presentation" onMouseDown={close}>
          <div
@@ -461,17 +518,18 @@ function WishModal({
             </div>
             <img
                className="wish-dragon"
-               src={img("decoracion/dragon-jade.svg")}
+               src={img(config.imagenes.dragonDeseo)}
                alt=""
             />
-            <h2 id="wish-title">¡Tu deseo se ha cumplido!</h2>
-            <p>
-               {invitado ? `${invitado.nombre}, estás` : "Estás"} invitado a la
-               fiesta de <b>{config.nombre}</b>. ¡Reuniste las 7 esferas!
-            </p>
-            <Button onClick={close}>¡GENIAL!</Button>
+            <h2 id="wish-title">{t(j.deseoTitulo)}</h2>
+            <Rich
+               as="p"
+               texto={invitado ? j.deseoTextoInvitado : j.deseoTexto}
+               extra={{ invitado: invitado?.nombre ?? "" }}
+            />
+            <Button onClick={close}>{j.deseoBoton}</Button>
             <button type="button" className="text-button" onClick={reset}>
-               Volver a esconder las esferas
+               {j.deseoReiniciar}
             </button>
          </div>
       </div>
@@ -482,8 +540,98 @@ function WishModal({
 /* App                                                                 */
 /* ------------------------------------------------------------------ */
 
+/** Ventana de bienvenida: el diseño y los textos salen de config (bienvenidas). */
+function WelcomeModal({
+   enter,
+   invitado,
+}: {
+   enter: (withMusic: boolean) => void;
+   invitado: Invitado | null;
+}) {
+   const b = bienvenida;
+   const vars = { invitado: invitado?.nombre ?? "" };
+   const saludo = t(invitado ? b.saludoInvitado : b.saludo, vars);
+   const subtitulo = t(b.subtitulo, vars);
+   const extra = t(b.extra, vars);
+
+   return (
+      <div
+         className={`modal-backdrop welcome welcome-bg-${b.estilo}`}
+         role="presentation"
+      >
+         <div
+            className={`modal-card welcome-card welcome-card-${b.estilo}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="welcome-title"
+         >
+            {b.estilo === "radar" && (
+               <div className="welcome-radar" aria-hidden="true">
+                  <span className="radar-sweep" />
+                  {NUMEROS.map((n) => (
+                     <Esfera
+                        key={n}
+                        estrellas={n}
+                        className={`radar-blip blip-${n}`}
+                     />
+                  ))}
+               </div>
+            )}
+            {b.estilo === "pergamino" && extra && (
+               <span className="welcome-sello">{extra}</span>
+            )}
+            {b.estilo !== "radar" && (
+               <div className="welcome-figure">
+                  {b.estilo === "nube" && extra && (
+                     <Estallido texto={extra} className="welcome-sfx" />
+                  )}
+                  <Personaje
+                     file={b.imagen}
+                     estrellas={7}
+                     className="welcome-personaje"
+                  />
+               </div>
+            )}
+            <p className="welcome-saludo">{saludo}</p>
+            <h2 id="welcome-title">{config.nombre}</h2>
+            {b.estilo === "rastreador" && extra && (
+               <div className="welcome-scouter" aria-hidden="true">
+                  <span className="scouter-label">NIVEL DE PELEA</span>
+                  <strong>{extra}</strong>
+               </div>
+            )}
+            {b.estilo === "shenlong" && extra && (
+               <span className="welcome-concedido">{extra}</span>
+            )}
+            {b.estilo === "radar" && extra && (
+               <span className="welcome-lectura">{extra}</span>
+            )}
+            {subtitulo && <span className="welcome-sub">{subtitulo}</span>}
+            {hasMusic ? (
+               <>
+                  <Button onClick={() => enter(true)}>{b.botonConMusica}</Button>
+                  <button
+                     type="button"
+                     className="text-button"
+                     onClick={() => enter(false)}
+                  >
+                     {b.botonSinMusica}
+                  </button>
+               </>
+            ) : (
+               <Button onClick={() => enter(false)}>{b.botonEntrar}</Button>
+            )}
+         </div>
+      </div>
+   );
+}
+
 function App() {
    const invitado = obtenerInvitado();
+   const p = config.poder;
+   const c = config.credencial;
+   const ce = config.celebracion;
+   const en = config.entrenamiento;
    const [modal, setModal] = useState<ModalName>("welcome");
    const [welcomeClosed, setWelcomeClosed] = useState(false);
    const [slide, setSlide] = useState<number | null>(null);
@@ -715,8 +863,10 @@ function App() {
             <div className="found-toast" role="status">
                <Esfera estrellas={justFound} />
                <span>
-                  ¡Encontraste la esfera de {justFound}{" "}
-                  {justFound === 1 ? "estrella" : "estrellas"}!
+                  {t(config.juego.encontrada, {
+                     n: String(justFound),
+                     estrellas: justFound === 1 ? "estrella" : "estrellas",
+                  })}
                </span>
             </div>
          )}
@@ -727,22 +877,43 @@ function App() {
             <NubeDorada className="nube-1" />
             <NubeDorada className="nube-2" />
             <NubeDorada className="nube-3" />
+            {config.imagenes.dragonPortada && (
+               <img
+                  className="hero-shenlong"
+                  src={img(config.imagenes.dragonPortada)}
+                  alt=""
+                  aria-hidden="true"
+               />
+            )}
             <div className="hero-inner">
-               <div className="hero-character">
+               <div className={`hero-character modo-${modoPortada}`}>
                   <div className="aura" aria-hidden="true" />
-                  <Personaje
-                     file={config.imagenes.heroe}
-                     estrellas={4}
-                     className="hero-personaje"
-                  />
+                  {modoPortada !== "personaje" && (
+                     <div className="hero-foto">
+                        <span className="hero-foto-anillo" aria-hidden="true" />
+                        <img
+                           src={img(config.imagenes.fotoPortada)}
+                           alt={config.nombre}
+                        />
+                        {config.portada.insignia && (
+                           <span className="hero-foto-insignia">
+                              {t(config.portada.insignia)}
+                           </span>
+                        )}
+                     </div>
+                  )}
+                  {modoPortada !== "foto" && (
+                     <Personaje
+                        file={config.imagenes.heroe}
+                        estrellas={4}
+                        className="hero-personaje"
+                     />
+                  )}
                </div>
                <div className="hero-content">
-                  <span className="hero-tag">{config.etiqueta}</span>
+                  <span className="hero-tag">{t(config.portada.etiqueta)}</span>
                   <h1>{config.nombre}</h1>
-                  <p className="hero-age">
-                     ¡{capitalize(config.guerrero)} más fuerte cumple{" "}
-                     {config.edad} {config.edad === 1 ? "año" : "años"}!
-                  </p>
+                  <p className="hero-age">{t(config.portada.frase)}</p>
                   <p className="hero-date">{fechaCorta}</p>
                </div>
             </div>
@@ -753,22 +924,22 @@ function App() {
             {/* ---------------- INTRO ---------------- */}
             <section className="intro halftone">
                <div className="panel intro-panel" data-reveal>
-                  <Estallido texto="¡HOLA!" className="intro-burst" />
-                  <p className="quote">{config.frase}</p>
+                  <Estallido texto={config.intro.estallido} className="intro-burst" />
+                  <p className="quote">{t(config.intro.frase)}</p>
                   <ul className="facts">
                      <li>
                         <strong>{config.edad}</strong>
-                        {config.edad === 1 ? "año" : "años"} de entrenamiento
+                        {t(config.intro.datos.anios)}
                      </li>
                      <li>
                         <strong>
                            {(config.edad * 365).toLocaleString("es-PE")}
                         </strong>
-                        días acumulando poder
+                        {t(config.intro.datos.dias)}
                      </li>
                      <li>
                         <strong>1</strong>
-                        fiesta legendaria
+                        {t(config.intro.datos.fiesta)}
                      </li>
                   </ul>
                </div>
@@ -778,33 +949,32 @@ function App() {
                         <Esfera key={n} estrellas={n} />
                      ))}
                   </div>
-                  <p>
-                     <b>Misión secreta:</b> hay <b>7 esferas</b> escondidas en
-                     esta invitación. ¡Encuéntralas todas y pide tu deseo!
-                  </p>
+                  <Rich as="p" texto={config.juego.pista} />
                </div>
                <Escondida n={2} className="esc-intro" />
             </section>
 
             {/* ---------------- NIVEL DE PODER ---------------- */}
             <section className="power">
-               <SectionTitle kicker="Escáner de energía" title="Nivel de poder" light>
-                  Midiendo cuánto falta para el gran día…
+               <SectionTitle kicker={p.kicker} title={p.titulo} light>
+                  {t(p.subtitulo)}
                </SectionTitle>
                <div className="hud" data-reveal>
                   <div className="hud-top">
-                     <span>OBJETIVO: {config.nombre.toUpperCase()}</span>
-                     <span className="blink">● ANALIZANDO</span>
+                     <span>
+                        {p.objetivo}: {config.nombre.toUpperCase()}
+                     </span>
+                     <span className="blink">{p.analizando}</span>
                   </div>
                   {isToday ? (
-                     <p className="hud-max">¡NIVEL MÁXIMO! ¡ES HOY!</p>
+                     <p className="hud-max">{p.esHoy}</p>
                   ) : (
                      <div className="hud-digits">
                         {[
-                           [time.days, "días"],
-                           [time.hours, "horas"],
-                           [time.mins, "min"],
-                           [time.secs, "seg"],
+                           [time.days, p.unidades.dias],
+                           [time.hours, p.unidades.horas],
+                           [time.mins, p.unidades.min],
+                           [time.secs, p.unidades.seg],
                         ].map(([n, label]) => (
                            <div key={label}>
                               <strong>{pad(Number(n))}</strong>
@@ -816,21 +986,19 @@ function App() {
                   <div className="hud-bar" aria-hidden="true">
                      <span />
                   </div>
-                  <p className="hud-foot">
-                     ¡La energía sigue subiendo! No te pierdas el torneo.
-                  </p>
+                  <p className="hud-foot">{t(p.pie)}</p>
                </div>
                <Escondida n={3} className="esc-power" />
             </section>
 
             {/* ---------------- CREDENCIAL ---------------- */}
             <section className="badge-section halftone">
-               <SectionTitle kicker="Registro oficial" title="Tu credencial de luchador">
-                  Tu presencia es lo más importante. ¡No faltes!
+               <SectionTitle kicker={c.kicker} title={c.titulo}>
+                  {t(c.subtitulo)}
                </SectionTitle>
                <div className="badge" data-reveal>
                   <div className="badge-head">
-                     <span>Gran Torneo de Cumpleaños</span>
+                     <span>{t(c.cabecera)}</span>
                      <span className="badge-no">
                         Nº {invitado?.codigoInvitacion ?? "000"}
                      </span>
@@ -843,82 +1011,85 @@ function App() {
                      />
                      <dl>
                         <div>
-                           <dt>Luchador</dt>
+                           <dt>{c.luchador}</dt>
                            <dd className="badge-name">
                               {invitado
                                  ? `${invitado.nombre} ${invitado.apellidos}`.trim()
-                                 : "Guerrero invitado"}
+                                 : c.sinNombre}
                            </dd>
                         </div>
                         <div>
-                           <dt>Categoría</dt>
-                           <dd>Invitado de honor</dd>
+                           <dt>{c.categoria}</dt>
+                           <dd>{c.categoriaValor}</dd>
                         </div>
                         <div>
-                           <dt>Arena</dt>
+                           <dt>{c.arena}</dt>
                            <dd>{config.lugar}</dd>
                         </div>
                         <div>
-                           <dt>Combate</dt>
+                           <dt>{c.combate}</dt>
                            <dd>
                               {fechaCorta} · {horaTexto}
                            </dd>
                         </div>
                      </dl>
                   </div>
-                  <Stamp className="stamp-badge">Inscrito</Stamp>
+                  <Stamp className="stamp-badge">{c.sello}</Stamp>
                </div>
                <Escondida n={4} className="esc-badge" />
             </section>
 
             {/* ---------------- CELEBRACIÓN ---------------- */}
             <section className="celebration" id="celebracion">
-               <SectionTitle kicker="Datos del combate" title="Celebración">
-                  Será un día inolvidable y queremos vivirlo contigo.
+               <SectionTitle kicker={ce.kicker} title={ce.titulo}>
+                  {t(ce.subtitulo)}
                </SectionTitle>
                <div className="panels">
                   <article className="panel info-panel" data-reveal>
                      <div className="info-icon">
                         <Icon name="calendar" />
                      </div>
-                     <h3>Día</h3>
+                     <h3>{ce.dia}</h3>
                      <p>
                         {diaTexto}
                         <br />
                         {horaTexto}
                      </p>
-                     <Button href={calendarUrl}>AGENDAR</Button>
+                     <Button href={calendarUrl}>{ce.botonAgendar}</Button>
                   </article>
                   <article className="panel info-panel" data-reveal>
                      <div className="info-icon">
                         <Icon name="check" />
                      </div>
-                     <h3>Arena</h3>
+                     <h3>{ce.arena}</h3>
                      <p>{config.lugar}</p>
                      <Button variant="blue" onClick={() => open("rsvp")}>
-                        CONFIRMAR
+                        {ce.botonConfirmar}
                      </Button>
                   </article>
                   <article className="panel info-panel" data-reveal>
                      <div className="info-icon">
                         <Icon name="pin" />
                      </div>
-                     <h3>Dirección</h3>
+                     <h3>{ce.direccion}</h3>
                      <p>
                         {config.direccion}
                         {config.referencia && (
                            <small className="info-ref">{config.referencia}</small>
                         )}
                      </p>
-                     <Button href={config.mapsUrl}>¿CÓMO LLEGAR?</Button>
+                     <Button href={config.mapsUrl}>{ce.botonMapa}</Button>
                   </article>
                </div>
             </section>
 
             {/* ---------------- ITINERARIO (MANGA) ---------------- */}
             <section className="itinerary halftone" id="itinerario">
-               <SectionTitle kicker="La saga del cumpleaños" title="Itinerario">
-                  Cada momento de la fiesta es un nuevo episodio.
+               <SectionTitle
+                  kicker={config.itinerario.kicker}
+                  title={config.itinerario.titulo}
+               >
+                  {t(config.itinerario.subtitulo)}
                </SectionTitle>
                <ol className="episodes">
                   {eventos.map((item, i) => (
@@ -927,7 +1098,9 @@ function App() {
                         key={`${item.hour}-${item.event}`}
                         data-reveal
                      >
-                        <span className="ep-number">Episodio {i + 1}</span>
+                        <span className="ep-number">
+                           {config.itinerario.episodio} {i + 1}
+                        </span>
                         <time>{item.hour}</time>
                         <p>{item.event}</p>
                         {item.sfx && (
@@ -949,10 +1122,10 @@ function App() {
                <div className="beam" aria-hidden="true" />
                <div className="rsvp-inner" data-reveal>
                   <div className="energy-ball" aria-hidden="true" />
-                  <h2>¡Únete al equipo!</h2>
-                  <p>Carga tu energía y confirma que vienes a la batalla.</p>
+                  <h2>{t(config.confirmar.titulo)}</h2>
+                  <p>{t(config.confirmar.texto)}</p>
                   <Button onClick={lanzarEnergia}>
-                     {charging ? "¡CARGANDO…!" : "LANZAR MI CONFIRMACIÓN"}
+                     {charging ? config.confirmar.cargando : config.confirmar.boton}
                   </Button>
                </div>
                <Escondida n={6} className="esc-rsvp" />
@@ -961,19 +1134,28 @@ function App() {
             {/* ---------------- GALERÍA (CÓMIC) ---------------- */}
             {gallery.length > 0 && (
                <section className="gallery halftone" id="galeria">
-                  <SectionTitle kicker="Recuerdos" title={config.galeria.titulo}>
-                     {config.galeria.subtitulo}
+                  <SectionTitle
+                     kicker={config.galeria.kicker}
+                     title={t(config.galeria.titulo)}
+                  >
+                     {t(config.galeria.subtitulo)}
                   </SectionTitle>
-                  <div className="comic-page">
+                  <div className="galeria">
                      {gallery.map((src, i) => (
                         <button
                            type="button"
-                           className="comic-frame"
+                           className="galeria-item"
                            key={src}
                            onClick={() => setSlide(i)}
+                           data-reveal="zoom"
+                           style={{ "--d": `${(i % 3) * 0.12}s` } as React.CSSProperties}
                            aria-label={`Ver foto ${i + 1} en grande`}
                         >
-                           <img src={src} alt="" loading="lazy" />
+                           <img
+                              src={src}
+                              alt={`Recuerdo de ${config.nombre} ${i + 1}`}
+                              loading="lazy"
+                           />
                         </button>
                      ))}
                   </div>
@@ -1025,22 +1207,16 @@ function App() {
 
             {/* ---------------- ENTRENAMIENTO ---------------- */}
             <section className="party" id="fiesta">
-               <SectionTitle kicker="Antes del combate" title="Entrenamiento">
-                  Todo lo que un buen guerrero debe saber.
+               <SectionTitle kicker={en.kicker} title={en.titulo}>
+                  {t(en.subtitulo)}
                </SectionTitle>
                <div className="party-grid">
-                  {(
-                     [
-                        ["dress", "Vestimenta", "¿Qué me pongo?", 1],
-                        ["tips", "Tips", "Información útil", 2],
-                        ["gifts", "Regalos", "Si deseas obsequiarme", 3],
-                     ] as const
-                  ).map(([key, title, sub, stars]) => (
+                  {(["dress", "tips", "gifts"] as const).map((key, i) => (
                      <article className="panel party-card" key={key} data-reveal>
-                        <Esfera estrellas={stars} className="party-esfera" />
-                        <h3>{title}</h3>
-                        <p>{sub}</p>
-                        <Button onClick={() => open(key)}>+ INFO</Button>
+                        <Esfera estrellas={i + 1} className="party-esfera" />
+                        <h3>{en.tarjetas[key].titulo}</h3>
+                        <p>{t(en.tarjetas[key].texto)}</p>
+                        <Button onClick={() => open(key)}>{en.boton}</Button>
                      </article>
                   ))}
                </div>
@@ -1050,8 +1226,8 @@ function App() {
             <section className="photos-section">
                <div className="photos-inner" data-reveal>
                   <Icon name="camera" />
-                  <h2>Captura cada momento épico</h2>
-                  <p>Comparte tus fotos y videos de este día tan especial</p>
+                  <h2>{t(config.fotos.titulo)}</h2>
+                  <p>{t(config.fotos.texto)}</p>
                   {config.fotos.albumUrl ? (
                      <a
                         className="hashtag"
@@ -1060,7 +1236,7 @@ function App() {
                         rel="noreferrer"
                      >
                         <strong>{config.fotos.hashtag}</strong>
-                        <span>COMPARTE TUS FOTOS AQUÍ</span>
+                        <span>{config.fotos.botonAlbum}</span>
                      </a>
                   ) : (
                      <strong className="hashtag">{config.fotos.hashtag}</strong>
@@ -1072,63 +1248,26 @@ function App() {
             <footer>
                <img
                   className="footer-dragon"
-                  src={img("decoracion/dragon-qing.svg")}
+                  src={img(config.imagenes.dragonPie)}
                   alt=""
                />
-               <p className="footer-cierre">{config.cierre}</p>
+               <p className="footer-cierre">{t(config.pie.cierre)}</p>
                <h2>{config.nombre}</h2>
                <p className="footer-age">{config.edadTexto}</p>
                <nav>
                   <button type="button" onClick={() => open("rsvp")}>
-                     Confirmar asistencia
+                     {config.pie.confirmar}
                   </button>
-                  <a href="#celebracion">Agendar celebración</a>
+                  <a href="#celebracion">{config.pie.agendar}</a>
                </nav>
                <Escondida n={7} className="esc-footer" />
-               <small>
-                  Desarrollado con <Icon name="heart" /> por{" "}
-                  <b>{config.creditos}</b>
-               </small>
+               <Rich as="small" texto={config.pie.creditos} />
             </footer>
          </div>
 
          {/* ---------------- BIENVENIDA ---------------- */}
          {modal === "welcome" && (
-            <div className="modal-backdrop welcome" role="presentation">
-               <div
-                  className="modal-card welcome-card"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="welcome-title"
-               >
-                  <Personaje
-                     file={config.imagenes.bienvenida}
-                     estrellas={7}
-                     className="welcome-personaje"
-                  />
-                  <p>¡Bienvenido, guerrero! Estás invitado al torneo de</p>
-                  <h2 id="welcome-title">{config.nombre}</h2>
-                  {hasMusic ? (
-                     <>
-                        <span>La música es parte del entrenamiento</span>
-                        <Button onClick={() => enter(true)}>
-                           ENTRAR CON MÚSICA
-                        </Button>
-                        <button
-                           type="button"
-                           className="text-button"
-                           onClick={() => enter(false)}
-                        >
-                           Entrar sin música
-                        </button>
-                     </>
-                  ) : (
-                     <Button onClick={() => enter(false)}>
-                        ¡QUE COMIENCE EL TORNEO!
-                     </Button>
-                  )}
-               </div>
-            </div>
+            <WelcomeModal enter={enter} invitado={invitado} />
          )}
          {modal === "wish" && (
             <WishModal
