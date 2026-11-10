@@ -174,6 +174,16 @@ export const config = {
     * Imágenes que van en public/img/ (ver public/img/LEEME.txt).
     * Si alguna falta, se muestra una esfera en su lugar.
     */
+   /**
+    * Aviso flotante "Demo · Personalizada · Cotízala" (esquina inferior izquierda).
+    * Ponlo en activo: false en la invitación real del cliente.
+    */
+   demo: {
+      activo: true,
+      paquete: "Personalizada",
+      cotizarUrl: "https://invitarte-peru.com/#cotiza",
+   },
+
    imagenes: {
       /** Personaje principal de la portada (PNG transparente, vertical). */
       heroe: "personaje-hero.png",

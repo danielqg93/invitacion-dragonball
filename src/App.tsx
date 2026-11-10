@@ -206,21 +206,65 @@ function useReveal() {
          for (const el of elements) el.classList.add("is-visible");
          return;
       }
+      const timers: number[] = [];
       const observer = new IntersectionObserver(
          (entries) => {
             for (const entry of entries) {
-               if (entry.isIntersecting) {
-                  entry.target.classList.add("is-visible");
-                  observer.unobserve(entry.target);
-               }
+               if (!entry.isIntersecting) continue;
+               const el = entry.target as HTMLElement;
+               el.classList.add("is-visible");
+               observer.unobserve(el);
+               // Al terminar la animación se quita el atributo para que los
+               // efectos hover no hereden el retraso escalonado.
+               const i = Number(el.style.getPropertyValue("--i")) || 0;
+               timers.push(
+                  window.setTimeout(
+                     () => el.removeAttribute("data-reveal"),
+                     1500 + i * 120,
+                  ),
+               );
             }
          },
-         { threshold: 0.2 },
+         { threshold: 0.15, rootMargin: "0px 0px -6% 0px" },
       );
       for (const el of elements) observer.observe(el);
-      return () => observer.disconnect();
+      return () => {
+         observer.disconnect();
+         for (const t of timers) window.clearTimeout(t);
+      };
    }, []);
 }
+
+/** Expone --scroll (px) y --progress (0–1) en <html> para el parallax y la barra de ki. */
+function useScrollVars() {
+   useEffect(() => {
+      const root = document.documentElement;
+      let frame = 0;
+      const update = () => {
+         frame = 0;
+         const y = window.scrollY;
+         const max = root.scrollHeight - window.innerHeight;
+         root.style.setProperty("--scroll", String(Math.round(y)));
+         root.style.setProperty(
+            "--progress",
+            max > 0 ? Math.min(1, y / max).toFixed(4) : "0",
+         );
+      };
+      const onScroll = () => {
+         if (!frame) frame = window.requestAnimationFrame(update);
+      };
+      update();
+      window.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll);
+      return () => {
+         window.removeEventListener("scroll", onScroll);
+         window.removeEventListener("resize", onScroll);
+         if (frame) window.cancelAnimationFrame(frame);
+      };
+   }, []);
+}
+
+const reveal = (i: number) => ({ "--i": i }) as React.CSSProperties;
 
 /* ------------------------------------------------------------------ */
 /* Componentes pequeños                                                */
@@ -647,6 +691,7 @@ function App() {
    const isToday = Object.values(time).every((v) => v === 0);
 
    useReveal();
+   useScrollVars();
 
    useEffect(() => {
       const tick = () => {
@@ -821,6 +866,14 @@ function App() {
 
    return (
       <main style={mainStyle}>
+         {config.demo.activo && (
+            <div className="demo-aviso">
+               <span>Demo · {config.demo.paquete}</span>
+               <a href={config.demo.cotizarUrl} target="_top">
+                  Cotízala
+               </a>
+            </div>
+         )}
          {musicOn && hasMusic && (
             <>
                <div className="hidden-music-player" aria-hidden="true">
@@ -871,22 +924,26 @@ function App() {
             </div>
          )}
 
+         <div className="ki-bar" aria-hidden="true">
+            <span />
+         </div>
+
          {/* ---------------- PORTADA ---------------- */}
          <section className="hero" id="inicio">
             <div className="speed-lines" aria-hidden="true" />
-            <NubeDorada className="nube-1" />
-            <NubeDorada className="nube-2" />
-            <NubeDorada className="nube-3" />
+            <NubeDorada className="nube-1 parallax" />
+            <NubeDorada className="nube-2 parallax" />
+            <NubeDorada className="nube-3 parallax" />
             {config.imagenes.dragonPortada && (
                <img
-                  className="hero-shenlong"
+                  className="hero-shenlong parallax"
                   src={img(config.imagenes.dragonPortada)}
                   alt=""
                   aria-hidden="true"
                />
             )}
             <div className="hero-inner">
-               <div className={`hero-character modo-${modoPortada}`}>
+               <div className={`hero-character modo-${modoPortada} parallax`}>
                   <div className="aura" aria-hidden="true" />
                   {modoPortada !== "personaje" && (
                      <div className="hero-foto">
@@ -910,7 +967,7 @@ function App() {
                      />
                   )}
                </div>
-               <div className="hero-content">
+               <div className="hero-content parallax">
                   <span className="hero-tag">{t(config.portada.etiqueta)}</span>
                   <h1>{config.nombre}</h1>
                   <p className="hero-age">{t(config.portada.frase)}</p>
@@ -923,7 +980,7 @@ function App() {
          <div className="content">
             {/* ---------------- INTRO ---------------- */}
             <section className="intro halftone">
-               <div className="panel intro-panel" data-reveal>
+               <div className="panel intro-panel" data-reveal="left">
                   <Estallido texto={config.intro.estallido} className="intro-burst" />
                   <p className="quote">{t(config.intro.frase)}</p>
                   <ul className="facts">
@@ -943,8 +1000,8 @@ function App() {
                      </li>
                   </ul>
                </div>
-               <div className="game-hint" data-reveal>
-                  <div className="hint-spheres" aria-hidden="true">
+               <div className="game-hint" data-reveal="right">
+                  <div className="hint-spheres spin-scroll" aria-hidden="true">
                      {NUMEROS.map((n) => (
                         <Esfera key={n} estrellas={n} />
                      ))}
@@ -959,7 +1016,7 @@ function App() {
                <SectionTitle kicker={p.kicker} title={p.titulo} light>
                   {t(p.subtitulo)}
                </SectionTitle>
-               <div className="hud" data-reveal>
+               <div className="hud" data-reveal="punch">
                   <div className="hud-top">
                      <span>
                         {p.objetivo}: {config.nombre.toUpperCase()}
@@ -996,7 +1053,7 @@ function App() {
                <SectionTitle kicker={c.kicker} title={c.titulo}>
                   {t(c.subtitulo)}
                </SectionTitle>
-               <div className="badge" data-reveal>
+               <div className="badge" data-reveal="flip">
                   <div className="badge-head">
                      <span>{t(c.cabecera)}</span>
                      <span className="badge-no">
@@ -1045,7 +1102,7 @@ function App() {
                   {t(ce.subtitulo)}
                </SectionTitle>
                <div className="panels">
-                  <article className="panel info-panel" data-reveal>
+                  <article className="panel info-panel" data-reveal="slam" style={reveal(0)}>
                      <div className="info-icon">
                         <Icon name="calendar" />
                      </div>
@@ -1057,7 +1114,7 @@ function App() {
                      </p>
                      <Button href={calendarUrl}>{ce.botonAgendar}</Button>
                   </article>
-                  <article className="panel info-panel" data-reveal>
+                  <article className="panel info-panel" data-reveal="slam" style={reveal(1)}>
                      <div className="info-icon">
                         <Icon name="check" />
                      </div>
@@ -1067,7 +1124,7 @@ function App() {
                         {ce.botonConfirmar}
                      </Button>
                   </article>
-                  <article className="panel info-panel" data-reveal>
+                  <article className="panel info-panel" data-reveal="slam" style={reveal(2)}>
                      <div className="info-icon">
                         <Icon name="pin" />
                      </div>
@@ -1096,7 +1153,7 @@ function App() {
                      <li
                         className="panel episode"
                         key={`${item.hour}-${item.event}`}
-                        data-reveal
+                        data-reveal={i % 2 ? "right" : "left"}
                      >
                         <span className="ep-number">
                            {config.itinerario.episodio} {i + 1}
@@ -1120,7 +1177,7 @@ function App() {
             <section className={`rsvp-banner ${charging ? "charging" : ""}`}>
                <div className="speed-lines" aria-hidden="true" />
                <div className="beam" aria-hidden="true" />
-               <div className="rsvp-inner" data-reveal>
+               <div className="rsvp-inner" data-reveal="punch">
                   <div className="energy-ball" aria-hidden="true" />
                   <h2>{t(config.confirmar.titulo)}</h2>
                   <p>{t(config.confirmar.texto)}</p>
@@ -1212,7 +1269,12 @@ function App() {
                </SectionTitle>
                <div className="party-grid">
                   {(["dress", "tips", "gifts"] as const).map((key, i) => (
-                     <article className="panel party-card" key={key} data-reveal>
+                     <article
+                        className="panel party-card"
+                        key={key}
+                        data-reveal="slam"
+                        style={reveal(i)}
+                     >
                         <Esfera estrellas={i + 1} className="party-esfera" />
                         <h3>{en.tarjetas[key].titulo}</h3>
                         <p>{t(en.tarjetas[key].texto)}</p>
@@ -1224,7 +1286,7 @@ function App() {
 
             {/* ---------------- COMPARTE FOTOS ---------------- */}
             <section className="photos-section">
-               <div className="photos-inner" data-reveal>
+               <div className="photos-inner" data-reveal="zoom">
                   <Icon name="camera" />
                   <h2>{t(config.fotos.titulo)}</h2>
                   <p>{t(config.fotos.texto)}</p>
